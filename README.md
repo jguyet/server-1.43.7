@@ -7,13 +7,40 @@
 
 ![Logo](./aegnorlogo.png)
 
-# 🐉 AEGNOR SERVEUR
+# 🐉 AEGNOR SERVEUR — Game 1.43.7
 
 Cet émulateur est **open source** et disponible pour tout le monde.  
 Merci de **ne pas le vendre** : vous l’avez reçu gratuitement, donnez-le gratuitement 🤗.  
 
-Il est développé pour un **client 1.34.1** et lié au GitHub login suivant :  
-👉 [AegnorLogin](https://github.com/arwase/aegnor_loginV2) (fork du travail de Locos)
+Originalement développé pour un **client 1.34.1**, ce game est désormais **porté pour le client Dofus Retro 1.43.7**.  
+Il est lié au GitHub login suivant :  
+👉 [login-1.43.7](https://github.com/jguyet/login-1.43.7) (fork du Aegnor login / Locos)
+
+---
+
+## 🆕 Compatibilité client 1.43.7
+
+Le portage vers le client Dofus Retro 1.43.7 inclut :
+
+### Networking & dispatcher
+- **Transport** : version client `1.43.7`, réponse Flash `<policy-file-request/>`, parser format `ù` 3-parts (`base64ù<chksum>ù<commande>`), `encryptPacket = false`.
+- **Cases dispatcher** ajoutés/corrigés : `'k'` (Kolizéum no-op), `'z'` (zones / Almanax no-op), `'I'` (window desc), `'H'` (character switch `HS`), `'p'`/`'q'`/`'r'` (ping/qping/rpong). Fix fallthrough sur `'X'`.
+- **GI cyrillique** : normalisation `'І' (U+0406) → 'I'` (le client 1.43.7 envoie le caractère cyrillique).
+- **GI throttle** : 800ms (sinon spam → re-envoi en boucle des entités → flicker).
+- **GDM short format** : revenu au format court `GDM|id|date|key` (Bustemu n'utilise pas le format long).
+- **Restauration clés de décryption maps** depuis `static_maps` (9218 maps mises à jour en SQL).
+
+### No-op stubs pour features 1.43.7
+- `BK` (vocab sanction → réponse `BN`)
+- `BR` (report → ignoré)
+- Almanax, Ornements, Succès, Live action, Ladder, boutique in-game : no-op natif via sous-switch sans `default`.
+
+### Bugs gameplay débloqués par l'analyse du parser AS2
+- **Console admin "Erreur de protocole"** : format `BAT{type}|0||{msg}` (au lieu de `BAT0<msg>` qui faisait planter le parser).
+- **Boost stats "Boost Invalide"** : split du packet `AB<id>|<qty>` sur `|` (au lieu de `;`). Refactor de `boostStats2` pour interpréter qty comme nombre de stats voulus.
+- **Commande `.LEVEL`** : envoi explicite de `GAME_SEND_STATS_PACKET` + `GAME_SEND_SPELL_LIST` après le levelup pour rafraîchir l'UI.
+- **Character switch (`HS`)** : flow complet implémenté côté game (génération ticket, notification login via Exchange `WS<accId>;<ticket>#`, `closeOnFlush` au lieu de `closeNow`).
+- **Couleurs des monstres tous noirs** : format `+cell;ori;star;groupId;mobIDs;-3;gfx;levels;colors_mob1;acc_mob1;...` (sans `totalExp` qui décalait les positions attendues par le parser AS2).
 
 ---
 
@@ -77,7 +104,8 @@ Un grand merci à :
 - L’ensemble des donateurs qui ont soutenu le projet  
 - Tous les auteurs qui ont contribués aux émulateurs précédents ou ultérieur
 
-👤 Auteur : [@arwase](https://github.com/arwase)  
+👤 Portage client **1.43.7** : **Jiji** ([@jguyet](https://github.com/jguyet))  
+👤 Auteur original : [@arwase](https://github.com/arwase)  
 💬 Discord : `Arwase#6656`
 
 ---
