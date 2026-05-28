@@ -7754,28 +7754,37 @@ public class GameClient {
         try {
             switch (sub) {
                 case 'A': {
-                    // OrA<position>;<objectID>  → confirm with OrA<position>;<objectID>;
+                    // Client envoie OrA<position>;<objectGUID> (le GUID dans l'inventaire du joueur).
+                    // L'echo doit être OrA<position>;<templateID>;<compressedEffects> car le client construit
+                    // un InventoryShortcutItem(nGenericID=templateID, nPosition, sEffects=compressedEffects).
                     String[] parts = data.split(";");
                     if (parts.length < 2) return;
                     int position = Integer.parseInt(parts[0]);
-                    long objectId = Long.parseLong(parts[1]);
-                    this.player.getInventoryShortcuts().put(position, objectId);
+                    long objectGuid = Long.parseLong(parts[1]);
+                    object.GameObject obj = this.player.getItems().get(objectGuid);
+                    if (obj == null) return;
+                    int templateId = obj.getTemplate().getId();
+                    String effects = obj.parseStatsString();
+                    this.player.getInventoryShortcuts().put(position, objectGuid);
                     Database.getStatics().getPlayerData().updateInventoryShortcuts(this.player);
-                    this.send("OrA" + position + ";" + objectId + ";");
+                    this.send("OrA" + position + ";" + templateId + ";" + effects);
                     break;
                 }
                 case 'M': {
-                    // OrM<oldPos>;<newPos> → remove old, add new with same object
+                    // OrM<oldPos>;<newPos> → remove old, add new avec même objet
                     String[] parts = data.split(";");
                     if (parts.length < 2) return;
                     int oldPos = Integer.parseInt(parts[0]);
                     int newPos = Integer.parseInt(parts[1]);
-                    Long objectId = this.player.getInventoryShortcuts().remove(oldPos);
-                    if (objectId == null) return;
-                    this.player.getInventoryShortcuts().put(newPos, objectId);
+                    Long objectGuid = this.player.getInventoryShortcuts().remove(oldPos);
+                    if (objectGuid == null) return;
+                    this.player.getInventoryShortcuts().put(newPos, objectGuid);
                     Database.getStatics().getPlayerData().updateInventoryShortcuts(this.player);
                     this.send("OrR" + oldPos);
-                    this.send("OrA" + newPos + ";" + objectId + ";");
+                    object.GameObject obj = this.player.getItems().get(objectGuid);
+                    if (obj != null) {
+                        this.send("OrA" + newPos + ";" + obj.getTemplate().getId() + ";" + obj.parseStatsString());
+                    }
                     break;
                 }
                 case 'R': {

@@ -190,12 +190,23 @@ public class Player {
             }
         }
     }
+    /**
+     * Construit les packets OrA à envoyer au client au login pour restaurer la
+     * shortcut bar d'items. Format : `OrA<pos>;<templateID>;<compressedEffects>`
+     * (cf. InventoryShortcutItem côté client).
+     * Les entrées dont l'objet n'existe plus dans l'inventaire sont silencieusement
+     * filtrées (l'item a peut-être été détruit/vendu depuis).
+     */
     public String parseInventoryShortcutsListPacket() {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
         for (Map.Entry<Integer, Long> e : _inventoryShortcuts.entrySet()) {
+            object.GameObject obj = this.getItems().get(e.getValue());
+            if (obj == null) continue;
             if (!first) sb.append("|");
-            sb.append("OrA").append(e.getKey()).append(";").append(e.getValue()).append(";");
+            sb.append("OrA").append(e.getKey())
+              .append(";").append(obj.getTemplate().getId())
+              .append(";").append(obj.parseStatsString());
             first = false;
         }
         return sb.toString();
