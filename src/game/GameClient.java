@@ -7760,7 +7760,7 @@ public class GameClient {
                     int position = Integer.parseInt(parts[0]);
                     long objectId = Long.parseLong(parts[1]);
                     this.player.getInventoryShortcuts().put(position, objectId);
-                    Database.getStatics().getPlayerData().update(this.player);
+                    Database.getStatics().getPlayerData().updateInventoryShortcuts(this.player);
                     this.send("OrA" + position + ";" + objectId + ";");
                     break;
                 }
@@ -7773,7 +7773,7 @@ public class GameClient {
                     Long objectId = this.player.getInventoryShortcuts().remove(oldPos);
                     if (objectId == null) return;
                     this.player.getInventoryShortcuts().put(newPos, objectId);
-                    Database.getStatics().getPlayerData().update(this.player);
+                    Database.getStatics().getPlayerData().updateInventoryShortcuts(this.player);
                     this.send("OrR" + oldPos);
                     this.send("OrA" + newPos + ";" + objectId + ";");
                     break;
@@ -7782,7 +7782,7 @@ public class GameClient {
                     // OrR<position> → confirm with OrR<position>
                     int position = Integer.parseInt(data);
                     this.player.getInventoryShortcuts().remove(position);
-                    Database.getStatics().getPlayerData().update(this.player);
+                    Database.getStatics().getPlayerData().updateInventoryShortcuts(this.player);
                     this.send("OrR" + position);
                     break;
                 }

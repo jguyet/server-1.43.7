@@ -72,6 +72,8 @@ public class PlayerData extends AbstractDAO<Player> {
                             RS.getString("deadInformation"), RS.getByte("needRestat"), RS.getLong("totalKills"), RS.getInt("isParcho")
                     );
 
+                    try { perso.parseInventoryShortcuts(RS.getString("inventory_shortcuts")); }
+                    catch (SQLException ignored) {}
                     World.world.addPlayer(perso);
                     if (perso.isShowSeller())
                         World.world.addSeller(perso);
@@ -126,6 +128,10 @@ public class PlayerData extends AbstractDAO<Player> {
                         player.setNeededEndFight(oldPlayer.needEndFight(), oldPlayer.hasMobGroup());
 
                     player.VerifAndChangeItemPlace();
+                    // Inventory shortcuts (1.43.7) — colonne optionnelle, on protège des
+                    // anciennes DB sans cette colonne.
+                    try { player.parseInventoryShortcuts(RS.getString("inventory_shortcuts")); }
+                    catch (SQLException ignored) {}
                     World.world.addPlayer(player);
                     int guild = Database.getDynamics().getGuildMemberData().isPersoInGuild(RS.getInt("id"));
 
@@ -190,6 +196,8 @@ public class PlayerData extends AbstractDAO<Player> {
                         player.setNeededEndFight(p.needEndFight(), p.hasMobGroup());
 
                     player.VerifAndChangeItemPlace();
+                    try { player.parseInventoryShortcuts(RS.getString("inventory_shortcuts")); }
+                    catch (SQLException ignored) {}
                     World.world.addPlayer(player);
                     int guild = Database.getDynamics().getGuildMemberData().isPersoInGuild(RS.getInt("id"));
                     if (guild >= 0)
@@ -364,6 +372,18 @@ public class PlayerData extends AbstractDAO<Player> {
             executeUpdate(p);
         } catch (SQLException e) {
             sendError("PlayerData updateInfos", e);
+        }
+    }
+
+    /** Persiste uniquement la shortcut bar d'items (1.43.7). */
+    public void updateInventoryShortcuts(Player perso) {
+        String query = "UPDATE `players` SET `inventory_shortcuts` = ? WHERE `id` = ?";
+        try (Connection conn = dataSource.getConnection() ; PreparedStatement p = conn.prepareStatement(query) ) {
+            p.setString(1, perso.parseInventoryShortcutsToDB());
+            p.setInt(2, perso.getId());
+            executeUpdate(p);
+        } catch (SQLException e) {
+            sendError("PlayerData updateInventoryShortcuts", e);
         }
     }
 

@@ -2230,6 +2230,13 @@ public class Player {
         GameClient client = this.account.getGameClient();
         SocketManager.GAME_SEND_GAME_CREATE(client, this.getName());
         SocketManager.GAME_SEND_STATS_PACKET(this);
+        // 1.43.7 : envoi de la shortcut bar d'items (chaque entrée comme OrA<pos>;<id>;)
+        String shortcutsPacket = this.parseInventoryShortcutsListPacket();
+        if (shortcutsPacket.length() > 0) {
+            for (String p : shortcutsPacket.split("\\|")) {
+                client.send(p);
+            }
+        }
         Database.getStatics().getPlayerData().updateLogged(this.id, 1);
         this.verifEquiped();
 
