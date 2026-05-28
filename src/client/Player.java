@@ -6858,59 +6858,43 @@ public class Player {
         }
     }
 
-    public void boostStats2(final int type, int pointUsed)
+    public void boostStats2(final int type, int pointsRequested)
     {
-        if(this.isMorph()){
+        // Client 1.43.7 envoie "AB<statID>|<nbStatsVoulus>" (cf. AS2 Account.boost).
+        // pointsRequested = nombre de POINTS DE STAT à ajouter, pas budget de capital.
+        // Le serveur dépense le coût correspondant et ajoute le bon nombre de stats,
+        // en tenant compte des paliers (1:1 → 2:1 → 3:1 …).
+        if (this.isMorph()) {
             this.sendMessage("Vous êtes incarné, vous ne pouvez donc pas vous ajoutez de point de caractéristique !");
             return;
         }
-        if (_capital <= 0) {
+        if (_capital <= 0 || pointsRequested <= 0) {
             return;
         }
-        int statID = 0, usados = 0;
+        int statID;
         switch (type) {
-            case 10 :
-                statID = (EffectConstant.STATS_ADD_FORC);
-                break;
-            case 11 :
-                statID = (EffectConstant.STATS_ADD_VITA);
-                break;
-            case 12 :
-                statID = (EffectConstant.STATS_ADD_SAGE);
-                break;
-            case 13 :
-                statID = (EffectConstant.STATS_ADD_CHAN);
-                break;
-            case 14 :
-                statID = (EffectConstant.STATS_ADD_AGIL);
-                break;
-            case 15 :
-                statID = (EffectConstant.STATS_ADD_INTE);
-                break;
+            case 10: statID = EffectConstant.STATS_ADD_FORC; break;
+            case 11: statID = EffectConstant.STATS_ADD_VITA; break;
+            case 12: statID = EffectConstant.STATS_ADD_SAGE; break;
+            case 13: statID = EffectConstant.STATS_ADD_CHAN; break;
+            case 14: statID = EffectConstant.STATS_ADD_AGIL; break;
+            case 15: statID = EffectConstant.STATS_ADD_INTE; break;
+            default: return;
         }
-        if (pointUsed > _capital) {
-            pointUsed = _capital;
-        }
-        int valorStat = 0;
-        Classe.BoostStat boost;
 
         boolean mod = false;
-        while (true) {
-            valorStat = this.stats.getEffect(statID);
-            boost = classeinit.getBoostStat(statID, valorStat);
-            usados += boost.cost;
+        int totalAdded = 0;
+        while (totalAdded < pointsRequested) {
+            int valorStat = this.stats.getEffect(statID);
+            Classe.BoostStat boost = classeinit.getBoostStat(statID, valorStat);
+            if (_capital < boost.cost) break; // plus assez de capital pour le palier suivant
+            _capital -= boost.cost;
+            this.getStats().addOneStat(statID, boost.puntos);
+            totalAdded += boost.puntos;
+            mod = true;
+        }
 
-            if (usados <= pointUsed) {
-                _capital -= boost.cost;
-                mod = true;
-                this.getStats().addOneStat(statID, boost.puntos);
-            } else {
-                break;
-            }
-        }
-        if (statID == EffectConstant.STATS_ADD_VITA) {// vitalidad
-            refreshLife(true);
-        }
+        if (statID == EffectConstant.STATS_ADD_VITA) refreshLife(true);
         if (mod) {
             SocketManager.GAME_SEND_STATS_PACKET(this);
             Database.getStatics().getPlayerData().update(this);

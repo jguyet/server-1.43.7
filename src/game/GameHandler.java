@@ -32,7 +32,22 @@ public class GameHandler implements IoHandler {
         GameClient client = (GameClient) arg0.getAttribute("client");
         String packet = (String) arg1;
 
-        if (Config.INSTANCE.getENCRYPT_PACKET() && !packet.startsWith("AT") && !packet.startsWith("Ak") && !packet.startsWith("CNXN") && !packet.startsWith("Wp") ) {
+        if (packet.equalsIgnoreCase("<policy-file-request/>")) {
+            arg0.write(GameClient.POLICY_FILE);
+            arg0.closeOnFlush();
+            return;
+        }
+
+        boolean is143Packet = false;
+        if (packet.contains("ù")) {
+            String[] parts = packet.split("ù");
+            if (parts.length >= 3) {
+                packet = parts[2];
+                is143Packet = true;
+            }
+        }
+
+        if (!is143Packet && Config.INSTANCE.getENCRYPT_PACKET() && !packet.startsWith("AT") && !packet.startsWith("Ak") && !packet.startsWith("CNXN") && !packet.startsWith("Wp") ) {
             try {
                 packet = World.world.getCryptManager().decryptMessage(packet, client.getPreparedKeys());
             }

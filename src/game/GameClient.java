@@ -80,6 +80,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class GameClient {
 
+    public static final String POLICY_FILE = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+            "<cross-domain-policy>" +
+                "<site-control permitted-cross-domain-policies=\"all\"/>" +
+                "<allow-access-from domain=\"*\" to-ports=\"*\" secure=\"false\"/>" +
+                "<allow-http-request-headers-from domain=\"*\" headers=\"*\" secure=\"false\"/>" +
+            "</cross-domain-policy>";
+
     private final IoSession session;
     private Account account;
     private Player player;
@@ -91,9 +98,12 @@ public class GameClient {
 
     private byte language = Lang.ENGLISH;
     private String preparedKeys;
+    private long lastEntityRequestTime = 0;
+    private static final long ENTITY_REQUEST_THROTTLE_MS = 800;
 
     public GameClient(IoSession session) {
         this.session = session;
+        this.session.write(POLICY_FILE);
         this.session.write("HG");
         String IP = ((InetSocketAddress) (this.getSession().getRemoteAddress())).getAddress().getHostAddress();
         logger = LoggerFactory.getLogger(IP);
@@ -122,12 +132,25 @@ public class GameClient {
     public void parsePacket(String packet) throws InterruptedException {
         this.lastPacketTime = System.currentTimeMillis();
 
-       /* if(packet.contains("ù")){
-            packet = packet.split("ù")[2];
-        }*/
+        if (packet.isEmpty()) {
+            return;
+        }
 
-        if (packet.length() > 3 && packet.substring(0, 4).equalsIgnoreCase("ping")) {
+        if (packet.equalsIgnoreCase("<policy-file-request/>")) {
+            this.session.write(POLICY_FILE);
+            this.session.closeOnFlush();
+            return;
+        }
+
+        if (packet.equalsIgnoreCase("ping")) {
             SocketManager.GAME_SEND_PONG(this);
+            return;
+        }
+        if (packet.equalsIgnoreCase("qping")) {
+            SocketManager.GAME_SEND_QPONG(this);
+            return;
+        }
+        if (packet.length() > 4 && packet.substring(0, 5).equalsIgnoreCase("rpong")) {
             return;
         }
 
@@ -220,7 +243,6 @@ public class GameClient {
                 parsePanel(packet);
                 break;
             case 'X':
-                parseMapPacket(packet);
             case 'Z':
                 try{
                     parseMapPacket(packet);
@@ -230,12 +252,72 @@ public class GameClient {
                     System.out.println("ERROR : " + this.player.getName() + " : " + this.player.getAccount().getCurrentIp() + " : " + packet + " " + e.toString());
                 }
                 break;
+            case 'k':
+                parseKolizeumPacket(packet);
+                break;
+            case 'z':
+                parseZonePacket(packet);
+                break;
+            case 'I':
+                break;
+            case 'H':
+                // 1.43.7 : "HS" = demande de switch perso (askCharacterSwitchTicket).
+                // On sauvegarde le perso et on kick le client — il devra repasser par le login.
+                if (packet.length() >= 2 && packet.charAt(1) == 'S') {
+                    handleCharacterSwitch();
+                }
+                break;
+            case 'p':
+                if (packet.equalsIgnoreCase("ping")) SocketManager.GAME_SEND_PONG(this);
+                break;
+            case 'q':
+                if (packet.equalsIgnoreCase("qping")) SocketManager.GAME_SEND_QPONG(this);
+                break;
+            case 'r':
+                break;
             default:
                 if(this.player != null)
                     if(this.player.isChangeName())
                         this.changeName(packet);
                 break;
         }
+    }
+
+    private void parseKolizeumPacket(String packet) {
+    }
+
+    private void parseZonePacket(String packet) {
+    }
+
+    /**
+     * Handler "HS" (askCharacterSwitchTicket) du client 1.43.7.
+     * Flow :
+     *   1. Génère un ticket unique
+     *   2. Notifie le login via Exchange ("WS<accountId>;<ticket>")
+     *   3. Envoie "HS<ticket>" au client
+     *   4. Kick (sauvegarde + ferme la session)
+     * Le client se reconnecte ensuite au login, envoie "#S\n<ticket>" et le login
+     * skip l'auth pour l'envoyer directement à la sélection de personnage.
+     */
+    private void handleCharacterSwitch() {
+        if (this.account == null) {
+            this.kick();
+            return;
+        }
+        String ticket = "SW" + this.account.getId() + "_" + System.currentTimeMillis() + "_"
+                + java.util.UUID.randomUUID().toString().replace("-", "");
+        try {
+            exchange.ExchangeClient.INSTANCE.send("WS" + this.account.getId() + ";" + ticket + "#");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // IMPORTANT : nettoyage côté serveur AVANT le write, puis closeOnFlush
+        // pour garantir que "HS<ticket>" est bien envoyé au client avant la fermeture.
+        if (this.player != null) {
+            this.account.disconnect(this.player);
+        }
+        this.session.write("HS" + ticket);
+        this.session.closeOnFlush();
     }
 
     private void parsePanel(String packet) {
@@ -1495,19 +1577,17 @@ public class GameClient {
     }
 
     private void boostStats(String packet) {
+        // Format 1.43.7 (cf. AS2 Account.as) : AB<bonusID>|<quantity>
         int stat = 0;
         int capital = 1;
         try {
-            stat = Integer.parseInt(packet.substring(2).split(";")[0]);
+            String[] parts = packet.substring(2).split("\\|");
+            stat = Integer.parseInt(parts[0]);
+            if (parts.length > 1) capital = Integer.parseInt(parts[1]);
         } catch (Exception e) {
             e.printStackTrace();
             SocketManager.GAME_SEND_MESSAGE(this.player, "Boost Invalide");
             return;
-        };
-        try {
-            capital = Integer.parseInt(packet.split(";")[1]);
-        } catch (Exception e) {
-            e.printStackTrace();
         }
         this.player.boostStats2(stat, capital);
     }
@@ -1721,8 +1801,13 @@ public class GameClient {
             case 'D':
                 getDate();
                 break;
+            case 'K':
+                this.send("BN");
+                break;
             case 'M':
                 tchat(packet);
+                break;
+            case 'R':
                 break;
             case 'W': // Whois
                 whoIs(packet);
@@ -5642,7 +5727,9 @@ public class GameClient {
      * Game Packet *
      */
     private void parseGamePacket(String packet) {
-        switch (packet.charAt(1)) {
+        char sub = packet.charAt(1);
+        if (sub == 'І') sub = 'I';
+        switch (sub) {
             case 'A':
                 if (this.player != null)
                     sendActions(packet);
@@ -5671,9 +5758,13 @@ public class GameClient {
                         break;
                 }
                 break;
-            case 'I':
+            case 'I': {
+                long now = System.currentTimeMillis();
+                if (now - lastEntityRequestTime < ENTITY_REQUEST_THROTTLE_MS) break;
+                lastEntityRequestTime = now;
                 getExtraInformations();
                 break;
+            }
             case 'K':
                 actionAck(packet);
                 break;

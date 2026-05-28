@@ -72,16 +72,27 @@ public abstract class AdminUser {
         return new Timer(60000, action);
     }
 
+    // Format 1.43.7 console admin (cf. dofus.aks.Basics.onAuthorizedCommand) :
+    //   BAT{type}|{reportFlag}|{commandName}|{message}
+    //   - type        : 0 = log, 1 = erreur, 2 = info
+    //   - reportFlag  : 0 = pas de lien report
+    //   - commandName : nom de la commande (vide accepté)
+    //   - message     : contenu, peut contenir des '|' (joinés client-side)
     public void sendMessage(String message) {
-        this.player.send("BAT0" + message);
+        this.player.send(buildConsolePacket(0, message));
     }
 
     public void sendErrorMessage(String message) {
-        this.player.send("BAT1" + message);
+        this.player.send(buildConsolePacket(1, message));
     }
 
     public void sendSuccessMessage(String message) {
-        this.player.send("BAT2" + message);
+        this.player.send(buildConsolePacket(2, message));
+    }
+
+    private static String buildConsolePacket(int type, String message) {
+        if (message == null) message = "";
+        return "BAT" + type + "|0||" + message.replace("\r", "").replace("\n", "");
     }
 
     public abstract void apply(String packet);

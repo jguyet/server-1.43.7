@@ -1133,45 +1133,52 @@ public class Monster {
         }
 
         public String parseGM() {
+            // Format 1.43.7 (vérifié dans le parser AS2 source, dofus.aks.extend.GameIn.onMovement) :
+            //   +{cell};{dir};{starBonus};{groupId};{mobIDs};-3;{mobGFX};{mobLevels};{c1};{a1};{c2};{a2};...
+            // Pour chaque mob i : colors à _loc10_[8 + 2i], accessories à _loc10_[9 + 2i].
+            // Affichage de TOUS les mobs si option "ViewAllMonsterInGroup" activée côté client.
+            // PAS de totalExp à la position 8 (c'est ce qui cassait avant).
             StringBuilder mobIDs = new StringBuilder();
             StringBuilder mobGFX = new StringBuilder();
             StringBuilder mobLevels = new StringBuilder();
-            StringBuilder colors = new StringBuilder();
-            StringBuilder toreturn = new StringBuilder();
-            long totalExp = 0;
-            boolean isFirst = true;
+            StringBuilder colorsAndAccessories = new StringBuilder();
             if (this.mobs.isEmpty())
                 return "";
 
+            boolean isFirst = true;
             for (Entry<Integer, MobGrade> entry : this.mobs.entrySet()) {
                 if (!isFirst) {
                     mobIDs.append(",");
                     mobGFX.append(",");
                     mobLevels.append(",");
+                    colorsAndAccessories.append(";");
                 }
-                mobIDs.append(entry.getValue().getTemplate().getId());
-                mobGFX.append(entry.getValue().getTemplate().getGfxId()).append("^").append(entry.getValue().getSize());
-                mobLevels.append(entry.getValue().getLevel());
-                //Accessories Mobs - Qu'Tan & Ili  (Debug Pandalette Ivre + Xelorette)
-                int tst = entry.getValue().getTemplate().getId();
-                if (tst==534) // Pandawa Ivre
-                    colors.append(entry.getValue().getTemplate().getColors()).append(";0,1C3C,1C40,0;");
-                else if (tst==547) // Pandalette ivre
-                    colors.append(entry.getValue().getTemplate().getColors()).append(";0,1C3C,1C40,0;");
-                else if (tst==1213) // Mage C�leste
-                    colors.append(entry.getValue().getTemplate().getColors()).append(";0,2BA,847,0;");
-                else
-                    colors.append(entry.getValue().getTemplate().getColors()).append(";0,0,0,0;");
+                MobGrade mob = entry.getValue();
+                int templateId = mob.getTemplate().getId();
+                mobIDs.append(templateId);
+                mobGFX.append(mob.getTemplate().getGfxId()).append("^").append(mob.getSize());
+                mobLevels.append(mob.getLevel());
 
-                totalExp += entry.getValue().baseXp;
+                String mobColors = mob.getTemplate().getColors();
+                if (mobColors == null || mobColors.isEmpty()) mobColors = "-1,-1,-1";
+                String mobAccessories;
+                if (templateId == 534 || templateId == 547) mobAccessories = "0,1C3C,1C40,0";
+                else if (templateId == 1213) mobAccessories = "0,2BA,847,0";
+                else mobAccessories = "0,0,0,0";
+                colorsAndAccessories.append(mobColors).append(";").append(mobAccessories);
+
                 isFirst = false;
             }
 
-            totalExp = (long) (totalExp * (starBonus / 100f + Config.INSTANCE.getRATE_XP()));
-            toreturn.append("+").append(this.cellId).append(";").append(this.orientation).append(";");
-            toreturn.append(getStarBonus());// bonus en pourcentage (�toile/20%) // Actuellement 1%/min
-            toreturn.append(";").append(this.id).append(";").append(mobIDs).append(";-3;").append(mobGFX).append(";")
-                    .append(mobLevels).append(";").append(totalExp).append(";").append(colors);
+            StringBuilder toreturn = new StringBuilder();
+            toreturn.append("+").append(this.cellId)
+                    .append(";").append(this.orientation)
+                    .append(";").append(getStarBonus())
+                    .append(";").append(this.id)
+                    .append(";").append(mobIDs)
+                    .append(";-3;").append(mobGFX)
+                    .append(";").append(mobLevels)
+                    .append(";").append(colorsAndAccessories);
             return toreturn.toString();
         }
 

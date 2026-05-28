@@ -2487,7 +2487,9 @@ public class SocketManager {
 
     public static void GAME_SEND_MESSAGE_CONSOLE(Player player, String message)
     {
-        String packet = "BAT2" + message;
+        // Format 1.43.7 : BAT{type}|{reportFlag}|{commandName}|{message}
+        if (message == null) message = "";
+        String packet = "BAT2|0||" + message.replace("\r", "").replace("\n", "");
         send(player, packet);
     }
 
