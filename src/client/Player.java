@@ -1915,9 +1915,26 @@ public class Player {
         packet.append("SL");
         for (Iterator<SpellGrade> i = _sorts.values().iterator(); i.hasNext(); ) {
             SpellGrade SS = i.next();
-            packet.append(SS.getSpellID()).append("~").append(SS.getLevel()).append("~").append(_sortsPlaces.get(SS.getSpellID())).append(";");
+            packet.append(SS.getSpellID()).append("~").append(SS.getLevel()).append("~").append(_hashedPositionToHex(_sortsPlaces.get(SS.getSpellID()))).append(";");
         }
         return packet.toString();
+    }
+
+    /**
+     * Convertit une position de sort encodée en HASH alphabet (a-z, A-Z, 0-9, -, _)
+     * vers la représentation HEX attendue par le client 1.43.7 (cf. Spell.initialize
+     * ligne 453 : `parseInt(sCompressedPosition, 16)`).
+     * Retourne "_" si la position est invalide ou hors range 1-31.
+     */
+    private static String _hashedPositionToHex(Character c) {
+        if (c == null) return "_";
+        char ch = c.charValue();
+        int idx = -1;
+        for (int i = 0; i < common.CryptManager.HASH.length; i++) {
+            if (common.CryptManager.HASH[i] == ch) { idx = i; break; }
+        }
+        if (idx < 1 || idx > 31) return "_"; // hors range visible
+        return Integer.toHexString(idx);
     }
 
     public void set_SpellPlace(int SpellID, char Place) {
@@ -7150,7 +7167,7 @@ public class Player {
                 str.append(";");
             }
 
-            str.append(hp.getSpellID()).append("~").append(hp.getLevel()).append("~").append(_sortsPlaces.get(hp.getSpellID()));
+            str.append(hp.getSpellID()).append("~").append(hp.getLevel()).append("~").append(_hashedPositionToHex(_sortsPlaces.get(hp.getSpellID())));
         }
         return str.toString();
     }
