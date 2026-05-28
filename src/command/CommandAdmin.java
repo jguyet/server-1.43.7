@@ -2212,39 +2212,23 @@ public class CommandAdmin extends AdminUser {
                 obj.getTxtStat().put(997, mount.getName());
                 mount.setToMax();
             }
-            if(!pseudo.equals(""))
-            {
-                Player target = World.world.getPlayerByName(pseudo);
-                if(target != null) {
-                    if(this.getPlayer().addObjet(obj, true))
-                        World.world.addGameObject(obj, true);
-                    String str = "Creation de l'item " + tID + " reussie";
-                    if (useMax)
-                        str += " avec des stats maximums";
-
-                    str += " de rarete "+rarity;
-
-                    str += ".";
-                    target.sendMessage(str);
-                    SocketManager.GAME_SEND_Ow_PACKET(target);
-                }
-                else{
-                    pseudo = "";
-                    SocketManager.GAME_SEND_MESSAGE(getPlayer(), "Le joueur ciblé n'a pas été trouvé l'item a donc été généré sur vous même.");
-                    if(this.getPlayer().addObjet(obj, true))
-                        World.world.addGameObject(obj, true);
-                    String str = "Creation de l'item " + tID + " reussie";
-                    if (useMax)
-                        str += " avec des stats maximums";
-
-                    str += " de rarete "+rarity;
-
-                    str += ".";
-                    this.sendMessage(str);
-                    SocketManager.GAME_SEND_Ow_PACKET(this.getPlayer());
-                    return;
-                }
+            // Détermine la cible : pseudo précisé → l'autre joueur, sinon soi-même.
+            Player target = pseudo.equals("") ? this.getPlayer()
+                                              : World.world.getPlayerByName(pseudo);
+            if (target == null) {
+                SocketManager.GAME_SEND_MESSAGE(this.getPlayer(),
+                        "Le joueur \"" + pseudo + "\" n'a pas été trouvé. Item généré sur vous même.");
+                target = this.getPlayer();
             }
+            if (target.addObjet(obj, true)) {
+                World.world.addGameObject(obj, true);
+            }
+            String str = "Creation de l'item " + tID + " reussie";
+            if (useMax) str += " avec des stats maximums";
+            if (rarity > 0) str += " de rarete " + rarity;
+            str += ".";
+            target.sendMessage(str);
+            SocketManager.GAME_SEND_Ow_PACKET(target);
             return;
         } else if (command.equalsIgnoreCase("SPELLPOINT"))
         {
