@@ -2204,13 +2204,18 @@ public class GameClient {
         int MapX = Integer.parseInt(datas.split(",")[0]);
         int MapY = Integer.parseInt(datas.split(",")[1]);
         ArrayList<GameMap> i = World.world.getMapByPosInArrayPlayer(MapX, MapY, this.player);
-        GameMap map = null;
-        if (i.size() <= 0)
+        if (i.isEmpty())
             return;
-        else if (i.size() > 1)
-            map = i.get(Formulas.getRandomValue(0, i.size() - 1));
-        else if (i.size() == 1)
-            map = i.get(0);
+        // Priorise les maps outdoor (outDoor==1) ; on retombe sur les maps intérieures
+        // uniquement si aucune outdoor n'existe à cette position (sinon le double-clic
+        // chat tombe sur un intérieur de maison/donjon au lieu de la map principale).
+        java.util.List<GameMap> outdoor = i.stream()
+                .filter(m -> m.getOutDoor() == 1)
+                .collect(java.util.stream.Collectors.toList());
+        java.util.List<GameMap> pool = !outdoor.isEmpty() ? outdoor : i;
+        GameMap map = pool.size() == 1
+                ? pool.get(0)
+                : pool.get(Formulas.getRandomValue(0, pool.size() - 1));
         if (map == null)
             return;
         int CellId = map.getRandomFreeCellId();
